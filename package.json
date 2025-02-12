@@ -1,0 +1,65 @@
+{
+  "name": "mcp-db-analyzer",
+  "version": "0.2.0",
+  "description": "MCP server for PostgreSQL, MySQL, and SQLite schema analysis, index optimization, and query plan inspection",
+  "author": "Dmytro Lisnichenko",
+  "type": "module",
+  "main": "./build/index.js",
+  "bin": {
+    "mcp-db-analyzer": "./build/index.js"
+  },
+  "scripts": {
+    "build": "tsc && chmod 755 build/index.js",
+    "test": "vitest run --exclude 'tests/integration/**' --exclude 'build/**'",
+    "test:integration": "vitest run tests/integration/",
+    "dev": "tsc --watch",
+    "start": "node build/index.js",
+    "prepublishOnly": "npm run build && npm test"
+  },
+  "files": [
+    "build/**/*.js",
+    "!build/__tests__",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "postgresql",
+    "mysql",
+    "sqlite",
+    "database",
+    "schema-analyzer",
+    "index-optimization",
+    "query-plan",
+    "ai",
+    "claude"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Dmitriusan/mcp-db-analyzer"
+  },
+  "homepage": "https://github.com/Dmitriusan/mcp-db-analyzer#readme",
+  "bugs": {
+    "url": "https://github.com/Dmitriusan/mcp-db-analyzer/issues"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.27.1",
+    "better-sqlite3": "^12.6.2",
+    "mysql2": "^3.19.0",
+    "pg": "^8.13.0",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/mysql": "^2.15.27",
+    "@types/node": "^22.0.0",
+    "@types/pg": "^8.11.0",
+    "typescript": "^5.8.2",
+    "vitest": "^4.0.18"
+  }
+}
