@@ -1,0 +1,270 @@
+import { describe, it, expect, vi, beforeEach } from "vitest";
+
+vi.mock("../db.js", () => ({
+  query: vi.fn(),
+  queryUnsafe: vi.fn(),
+  closePool: vi.fn(),
+  getDriverType: vi.fn(() => "postgres"),
+  initDriver: vi.fn(),
+}));
+
+import { query, getDriverType } from "../db.js";
+import { analyzeSlowQueries } from "../analyzers/slow-queries.js";
+import { analyzeConnections } from "../analyzers/connections.js";
+import { analyzeTableRelationships } from "../analyzers/relationships.js";
+
+const mockQuery = vi.mocked(query);
+const mockGetDriverType = vi.mocked(getDriverType);
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  mockGetDriverType.mockReturnValue("postgres");
+});
+
+describe("analyze_slow_queries — extended tests", () => {
+  it("should handle MySQL driver", async () => {
+    mockGetDriverType.mockReturnValue("mysql");
+    // MySQL slow queries
+    mockQuery.mockResolvedValueOnce({
+      rows: [
+        {
+          digest_text: "SELECT * FROM users WHERE id = ?",
+          count_star: 500,
+          avg_timer_wait: 150000000000, // 150ms in picoseconds
+          sum_timer_wait: 75000000000000,
+          sum_rows_sent: 500,
+          sum_rows_examined: 50000,
+        },
+      ],
+    });
+
+    const result = await analyzeSlowQueries("public", 10);
+    expect(result).toContain("Slow Query Analysis");
+    expect(result).toContain("SELECT");
+  });
+
+  it("should handle queries with very high mean times", async () => {
+    mockQuery.mockResolvedValueOnce({ rows: [{ extname: "pg_stat_statements" }] });
+    mockQuery.mockResolvedValueOnce({
+      rows: [
+        {
+          query: "SELECT * FROM huge_table",
+          calls: 10,
+          total_exec_time: 600000, // 600 seconds total
+          mean_exec_time: 60000.0, // 60 seconds each
+          min_exec_time: 50000.0,
+          max_exec_time: 90000.0,
+          rows: 10000000,
+        },
+      ],
+    });
+
+    const result = await analyzeSlowQueries("public", 10);
+    expect(result).toContain("60000.0ms");
+    expect(result).toContain("Slow Query Analysis");
+  });
+});
+
+describe("analyze_connections — extended tests", () => {
+  it("should handle MySQL connections", async () => {
+    mockGetDriverType.mockReturnValue("mysql");
+    // Process list
+    mockQuery.mockResolvedValueOnce({
+      rows: [
+        { state: "Query", count: "5" },
+        { state: "Sleep", count: "20" },
+      ],
+    });
+    // Long-running
+    mockQuery.mockResolvedValueOnce({ rows: [] });
+
+    const result = await analyzeConnections();
+    expect(result).toContain("Connection Analysis (MySQL)");
+    expect(result).toContain("| Query | 5 |");
+    expect(result).toContain("| Sleep | 20 |");
+    expect(result).toContain("**Total** | **25**");
+  });
+
+  it("should show long-running queries and blocked connections together", async () => {
+    mockQuery.mockResolvedValueOnce({
+      rows: [{ state: "active", count: "10" }],
+    });
+    mockQuery.mockResolvedValueOnce({ rows: [{ setting: "100" }] });
+    mockQuery.mockResolvedValueOnce({ rows: [] }); // no idle txn
+    // Long-running query
+    mockQuery.mockResolvedValueOnce({
+      rows: [
+        {
+          pid: "5678",
+          usename: "analytics",
+          duration: "00:15:00",
+          wait_event_type: "IO",
+          query: "SELECT * FROM events WHERE ...",
+        },
+      ],
+    });
+    // Blocked connection
+    mockQuery.mockResolvedValueOnce({
+      rows: [
+        {
+          blocked_pid: "1111",
+          blocking_pid: "2222",
+          blocked_query: "UPDATE users SET ...",
+          blocking_query: "ALTER TABLE users ...",
+        },
+      ],
+    });
+
+    const result = await analyzeConnections();
+    expect(result).toContain("Long-Running Queries");
+    expect(result).toContain("5678");
+    expect(result).toContain("IO");
+    expect(result).toContain("Blocked Connections");
+    expect(result).toContain("1111");
+    expect(result).toContain("2222");
+    expect(result).toContain("statement_timeout");
+    expect(result).toContain("pg_terminate_backend");
+  });
+
+  it("should handle zero connections gracefully", async () => {
+    mockQuery.mockResolvedValueOnce({ rows: [] });
+    mockQuery.mockResolvedValueOnce({ rows: [{ setting: "100" }] });
+    mockQuery.mockResolvedValueOnce({ rows: [] });
+    mockQuery.mockResolvedValueOnce({ rows: [] });
+    mockQuery.mockResolvedValueOnce({ rows: [] });
+
+    const result = await analyzeConnections();
+    expect(result).toContain("**Total** | **0**");
+    expect(result).toContain("0.0%");
+    expect(result).toContain("No connection issues detected");
+  });
+});
+
+describe("analyze_table_relationships — extended tests", () => {
+  it("should detect self-referencing FK", async () => {
+    mockQuery.mockResolvedValueOnce({
+      rows: [{ table_name: "categories" }],
+    });
+    mockQuery.mockResolvedValueOnce({
+      rows: [
+        {
+          source_table: "categories",
+          source_column: "parent_id",
+          target_table: "categories",
+          target_column: "id",
+          constraint_name: "fk_parent",
+          on_delete: "SET NULL",
+          on_update: "NO ACTION",
+        },
+      ],
+    });
+
+    const result = await analyzeTableRelationships("public");
+    expect(result).toContain("categories");
+    expect(result).toContain("parent_id");
+  });
+
+  it("should handle many-to-many junction tables", async () => {
+    mockQuery.mockResolvedValueOnce({
+      rows: [
+        { table_name: "users" },
+        { table_name: "roles" },
+        { table_name: "user_roles" },
+      ],
+    });
+    mockQuery.mockResolvedValueOnce({
+      rows: [
+        {
+          source_table: "user_roles",
+          source_column: "user_id",
+          target_table: "users",
+          target_column: "id",
+          constraint_name: "fk_ur_user",
+          on_delete: "CASCADE",
+          on_update: "NO ACTION",
+        },
+        {
+          source_table: "user_roles",
+          source_column: "role_id",
+          target_table: "roles",
+          target_column: "id",
+          constraint_name: "fk_ur_role",
+          on_delete: "CASCADE",
+          on_update: "NO ACTION",
+        },
+      ],
+    });
+
+    const result = await analyzeTableRelationships("public");
+    expect(result).toContain("user_roles");
+    expect(result).toContain("users");
+    expect(result).toContain("roles");
+  });
+
+  it("should handle MySQL driver", async () => {
+    mockGetDriverType.mockReturnValue("mysql");
+    mockQuery.mockResolvedValueOnce({
+      rows: [{ TABLE_NAME: "users" }, { TABLE_NAME: "orders" }],
+    });
+    mockQuery.mockResolvedValueOnce({
+      rows: [
+        {
+          TABLE_NAME: "orders",
+          COLUMN_NAME: "user_id",
+          REFERENCED_TABLE_NAME: "users",
+          REFERENCED_COLUMN_NAME: "id",
+          CONSTRAINT_NAME: "fk_user",
+          DELETE_RULE: "CASCADE",
+          UPDATE_RULE: "NO ACTION",
+        },
+      ],
+    });
+
+    const result = await analyzeTableRelationships("public");
+    expect(result).toContain("Table Relationships");
+  });
+
+  it("should handle schema with no FK relationships at all", async () => {
+    mockQuery.mockResolvedValueOnce({
+      rows: [
+        { table_name: "users" },
+        { table_name: "logs" },
+        { table_name: "config" },
+      ],
+    });
+    mockQuery.mockResolvedValueOnce({ rows: [] });
+
+    const result = await analyzeTableRelationships("public");
+    expect(result).toContain("Orphan Tables");
+    // All tables should be orphans
+    expect(result).toContain("users");
+    expect(result).toContain("logs");
+    expect(result).toContain("config");
+  });
+});
+
+describe("analyze_connections — MySQL long-running", () => {
+  it("should show long-running MySQL queries", async () => {
+    mockGetDriverType.mockReturnValue("mysql");
+    mockQuery.mockResolvedValueOnce({
+      rows: [{ state: "Query", count: "3" }],
+    });
+    mockQuery.mockResolvedValueOnce({
+      rows: [
+        {
+          id: "42",
+          user: "app",
+          time: "120",
+          state: "Sending data",
+          info: "SELECT * FROM large_table",
+        },
+      ],
+    });
+
+    const result = await analyzeConnections();
+    expect(result).toContain("Long-Running Queries");
+    expect(result).toContain("42");
+    expect(result).toContain("120");
+    expect(result).toContain("Sending data");
+  });
+});
