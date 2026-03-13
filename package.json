@@ -1,6 +1,6 @@
 {
   "name": "mcp-db-analyzer",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "MCP server for PostgreSQL, MySQL, and SQLite schema analysis, index optimization, and query plan inspection",
   "author": "Dmytro Lisnichenko",
   "type": "module",
@@ -24,16 +24,22 @@
   ],
   "keywords": [
     "mcp",
+    "mcp-server",
     "model-context-protocol",
+    "ai",
+    "claude",
+    "anthropic",
+    "database",
+    "sql",
+    "schema",
+    "database-analyzer",
+    "database-diagnostics",
     "postgresql",
     "mysql",
     "sqlite",
-    "database",
     "schema-analyzer",
     "index-optimization",
-    "query-plan",
-    "ai",
-    "claude"
+    "query-plan"
   ],
   "license": "MIT",
   "engines": {
