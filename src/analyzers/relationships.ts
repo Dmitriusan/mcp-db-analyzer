@@ -144,7 +144,7 @@ async function analyzeSqliteRelationships(): Promise<string> {
       to: string;
       on_delete: string;
       on_update: string;
-    }>(`PRAGMA foreign_key_list('${table.name}')`);
+    }>(`PRAGMA foreign_key_list("${table.name.replace(/"/g, '""')}")`);
 
     for (const fk of fkInfo.rows) {
       fks.push({
