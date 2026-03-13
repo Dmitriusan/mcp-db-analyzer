@@ -1,5 +1,6 @@
 import mysql from "mysql2/promise";
 import type { DbAdapter, QueryResult } from "./db.js";
+import { getConnectionTimeoutMs } from "./db.js";
 
 function wrapConnectionError(err: unknown): Error {
   const msg = err instanceof Error ? err.message : String(err);
@@ -17,9 +18,10 @@ export function createMysqlAdapter(): DbAdapter {
 
   function getPool(): mysql.Pool {
     if (!pool) {
+      const timeoutMs = getConnectionTimeoutMs();
       const uri = process.env.DATABASE_URL;
       if (uri) {
-        pool = mysql.createPool(uri);
+        pool = mysql.createPool({ uri, connectTimeout: timeoutMs });
       } else {
         pool = mysql.createPool({
           host: process.env.MYSQL_HOST || process.env.DB_HOST || "localhost",
@@ -30,6 +32,7 @@ export function createMysqlAdapter(): DbAdapter {
           database: process.env.MYSQL_DATABASE || process.env.DB_NAME,
           user: process.env.MYSQL_USER || process.env.DB_USER,
           password: process.env.MYSQL_PASSWORD || process.env.DB_PASSWORD,
+          connectTimeout: timeoutMs,
         });
       }
     }

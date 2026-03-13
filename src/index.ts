@@ -13,7 +13,7 @@ import { analyzeSlowQueries } from "./analyzers/slow-queries.js";
 import { analyzeConnections } from "./analyzers/connections.js";
 import { analyzeTableRelationships } from "./analyzers/relationships.js";
 import { analyzeVacuum } from "./analyzers/vacuum.js";
-import { closePool, initDriver, type DriverType } from "./db.js";
+import { closePool, initDriver, setConnectionTimeoutMs, type DriverType } from "./db.js";
 import { formatToolError } from "./errors.js";
 import { validateLicense, formatUpgradePrompt } from "./license.js";
 
@@ -81,6 +81,19 @@ const server = new McpServer({
   version: "0.1.0",
 });
 
+// Shared Zod parameter for connection timeout
+const timeoutParam = z
+  .number()
+  .optional()
+  .default(30000)
+  .describe(
+    "Connection timeout in milliseconds (default: 30000). Increase for slow or remote databases."
+  );
+
+function applyTimeout(timeout_ms: number): void {
+  setConnectionTimeoutMs(timeout_ms);
+}
+
 // --- Tool: inspect_schema ---
 server.tool(
   "inspect_schema",
@@ -96,8 +109,10 @@ server.tool(
       .string()
       .default("public")
       .describe("Database schema to inspect (default: public)"),
+    timeout_ms: timeoutParam,
   },
-  async ({ table, schema }) => {
+  async ({ table, schema, timeout_ms }) => {
+    applyTimeout(timeout_ms);
     try {
       const result = table
         ? await inspectTable(table, schema)
@@ -131,8 +146,10 @@ server.tool(
       .describe(
         "Analysis mode: 'usage' for unused index detection, 'missing' for missing index suggestions, 'all' for both"
       ),
+    timeout_ms: timeoutParam,
   },
-  async ({ schema, mode }) => {
+  async ({ schema, mode, timeout_ms }) => {
+    applyTimeout(timeout_ms);
     try {
       const parts: string[] = [];
 
@@ -169,8 +186,10 @@ server.tool(
       .describe(
         "Run EXPLAIN ANALYZE to get actual execution times (executes the query). Only allowed for SELECT queries."
       ),
+    timeout_ms: timeoutParam,
   },
-  async ({ sql, analyze }) => {
+  async ({ sql, analyze, timeout_ms }) => {
+    applyTimeout(timeout_ms);
     try {
       const result = await explainQuery(sql, analyze);
       return { content: [{ type: "text", text: result }] };
@@ -196,8 +215,10 @@ server.tool(
       .string()
       .default("public")
       .describe("Database schema to analyze (default: public)"),
+    timeout_ms: timeoutParam,
   },
-  async ({ schema }) => {
+  async ({ schema, timeout_ms }) => {
+    applyTimeout(timeout_ms);
     try {
       const result = await analyzeTableBloat(schema);
       return { content: [{ type: "text", text: result }] };
@@ -223,8 +244,10 @@ server.tool(
       .string()
       .default("public")
       .describe("Database schema to analyze (default: public)"),
+    timeout_ms: timeoutParam,
   },
-  async ({ schema }) => {
+  async ({ schema, timeout_ms }) => {
+    applyTimeout(timeout_ms);
     if (!license.isPro) {
       return {
         content: [{
@@ -266,8 +289,10 @@ server.tool(
       .number()
       .default(10)
       .describe("Number of slow queries to return (default: 10)"),
+    timeout_ms: timeoutParam,
   },
-  async ({ schema, limit }) => {
+  async ({ schema, limit, timeout_ms }) => {
+    applyTimeout(timeout_ms);
     if (!license.isPro) {
       return {
         content: [{
@@ -300,8 +325,11 @@ server.tool(
 server.tool(
   "analyze_connections",
   "Analyze active database connections. Detects idle-in-transaction sessions, long-running queries, lock contention, and connection pool utilization. PostgreSQL and MySQL only.",
-  {},
-  async () => {
+  {
+    timeout_ms: timeoutParam,
+  },
+  async ({ timeout_ms }) => {
+    applyTimeout(timeout_ms);
     if (!license.isPro) {
       return {
         content: [{
@@ -340,8 +368,10 @@ server.tool(
       .string()
       .default("public")
       .describe("Database schema to analyze (default: public)"),
+    timeout_ms: timeoutParam,
   },
-  async ({ schema }) => {
+  async ({ schema, timeout_ms }) => {
+    applyTimeout(timeout_ms);
     if (!license.isPro) {
       return {
         content: [{
@@ -380,8 +410,10 @@ server.tool(
       .string()
       .default("public")
       .describe("Database schema to analyze (default: public)"),
+    timeout_ms: timeoutParam,
   },
-  async ({ schema }) => {
+  async ({ schema, timeout_ms }) => {
+    applyTimeout(timeout_ms);
     try {
       const result = await analyzeVacuum(schema);
       return { content: [{ type: "text", text: result }] };

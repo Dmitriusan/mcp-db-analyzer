@@ -1,5 +1,6 @@
 import pg from "pg";
 import type { DbAdapter, QueryResult } from "./db.js";
+import { getConnectionTimeoutMs } from "./db.js";
 
 const { Pool } = pg;
 
@@ -19,9 +20,14 @@ export function createPostgresAdapter(): DbAdapter {
 
   function getPool(): pg.Pool {
     if (!pool) {
+      const timeoutMs = getConnectionTimeoutMs();
       const connectionString = process.env.DATABASE_URL;
       if (connectionString) {
-        pool = new Pool({ connectionString });
+        pool = new Pool({
+          connectionString,
+          connectionTimeoutMillis: timeoutMs,
+          query_timeout: timeoutMs,
+        });
       } else {
         pool = new Pool({
           host: process.env.PGHOST || "localhost",
@@ -29,6 +35,8 @@ export function createPostgresAdapter(): DbAdapter {
           database: process.env.PGDATABASE || "postgres",
           user: process.env.PGUSER,
           password: process.env.PGPASSWORD,
+          connectionTimeoutMillis: timeoutMs,
+          query_timeout: timeoutMs,
         });
       }
     }

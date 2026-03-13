@@ -13,9 +13,18 @@ export interface DbAdapter {
 
 let adapter: DbAdapter | null = null;
 let driverType: DriverType = "postgres";
+let connectionTimeoutMs: number = 30000;
 
 export function getDriverType(): DriverType {
   return driverType;
+}
+
+export function getConnectionTimeoutMs(): number {
+  return connectionTimeoutMs;
+}
+
+export function setConnectionTimeoutMs(ms: number): void {
+  connectionTimeoutMs = ms;
 }
 
 export function setAdapter(a: DbAdapter): void {
