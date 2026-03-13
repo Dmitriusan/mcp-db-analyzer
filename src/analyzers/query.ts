@@ -39,6 +39,10 @@ export async function explainQuery(
   sql: string,
   analyze: boolean = false
 ): Promise<string> {
+  if (!sql || !sql.trim()) {
+    return "**Error**: SQL query cannot be empty.";
+  }
+
   // Safety: in ANALYZE mode, only allow pure SELECT statements.
   // EXPLAIN ANALYZE actually executes the query, so we must reject anything
   // that could modify data — including CTEs with write operations.
