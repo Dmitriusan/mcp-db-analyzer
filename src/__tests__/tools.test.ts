@@ -95,6 +95,18 @@ describe("analyze_indexes — analyzeIndexUsage", () => {
 });
 
 describe("explain_query", () => {
+  it("should return error for empty SQL string", async () => {
+    const result = await explainQuery("", false);
+    expect(result).toContain("SQL query cannot be empty");
+    expect(mockQueryUnsafe).not.toHaveBeenCalled();
+  });
+
+  it("should return error for whitespace-only SQL", async () => {
+    const result = await explainQuery("   \n\t  ", false);
+    expect(result).toContain("SQL query cannot be empty");
+    expect(mockQueryUnsafe).not.toHaveBeenCalled();
+  });
+
   it("should reject DML in analyze mode", async () => {
     const result = await explainQuery("DELETE FROM users", true);
     expect(result).toContain("only allowed on pure SELECT");
@@ -442,6 +454,22 @@ describe("analyze_table_relationships", () => {
     expect(result).toContain("Table Relationships");
     expect(result).toContain("orders");
     expect(result).toContain("users");
+  });
+
+  it("should handle SQLite with no FK relationships", async () => {
+    mockGetDriverType.mockReturnValue("sqlite");
+    mockQuery.mockResolvedValueOnce({
+      rows: [{ name: "config" }, { name: "metadata" }],
+    });
+    // No FKs for either table
+    mockQuery.mockResolvedValueOnce({ rows: [] });
+    mockQuery.mockResolvedValueOnce({ rows: [] });
+
+    const result = await analyzeTableRelationships("public");
+    expect(result).toContain("Table Relationships");
+    expect(result).toContain("Orphan Tables");
+    expect(result).toContain("config");
+    expect(result).toContain("metadata");
   });
 });
 
