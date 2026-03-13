@@ -15,10 +15,6 @@ import { analyzeTableRelationships } from "./analyzers/relationships.js";
 import { analyzeVacuum } from "./analyzers/vacuum.js";
 import { closePool, initDriver, setConnectionTimeoutMs, type DriverType } from "./db.js";
 import { formatToolError } from "./errors.js";
-import { validateLicense, formatUpgradePrompt } from "./license.js";
-
-// License check (reads MCP_LICENSE_KEY env var once at startup)
-const license = validateLicense(process.env.MCP_LICENSE_KEY, "db-analyzer");
 
 // Handle --help
 if (process.argv.includes("--help") || process.argv.includes("-h")) {
@@ -248,18 +244,6 @@ server.tool(
   },
   async ({ schema, timeout_ms }) => {
     applyTimeout(timeout_ms);
-    if (!license.isPro) {
-      return {
-        content: [{
-          type: "text",
-          text: formatUpgradePrompt("suggest_missing_indexes",
-            "Actionable index recommendations with:\n" +
-            "- Tables with high sequential scan counts\n" +
-            "- Cross-referenced unused indexes wasting space\n" +
-            "- Ready-to-run CREATE INDEX and DROP INDEX statements"),
-        }],
-      };
-    }
     try {
       const result = await suggestMissingIndexes(schema);
       return { content: [{ type: "text", text: result }] };
@@ -293,18 +277,6 @@ server.tool(
   },
   async ({ schema, limit, timeout_ms }) => {
     applyTimeout(timeout_ms);
-    if (!license.isPro) {
-      return {
-        content: [{
-          type: "text",
-          text: formatUpgradePrompt("analyze_slow_queries",
-            "Slow query analysis with:\n" +
-            "- Top queries ranked by total execution time\n" +
-            "- Call counts, mean/max times, rows returned\n" +
-            "- Optimization recommendations"),
-        }],
-      };
-    }
     try {
       const result = await analyzeSlowQueries(schema, limit);
       return { content: [{ type: "text", text: result }] };
@@ -330,19 +302,6 @@ server.tool(
   },
   async ({ timeout_ms }) => {
     applyTimeout(timeout_ms);
-    if (!license.isPro) {
-      return {
-        content: [{
-          type: "text",
-          text: formatUpgradePrompt("analyze_connections",
-            "Connection analysis with:\n" +
-            "- Idle-in-transaction session detection\n" +
-            "- Long-running query identification\n" +
-            "- Lock contention analysis\n" +
-            "- Connection pool utilization metrics"),
-        }],
-      };
-    }
     try {
       const result = await analyzeConnections();
       return { content: [{ type: "text", text: result }] };
@@ -372,19 +331,6 @@ server.tool(
   },
   async ({ schema, timeout_ms }) => {
     applyTimeout(timeout_ms);
-    if (!license.isPro) {
-      return {
-        content: [{
-          type: "text",
-          text: formatUpgradePrompt("analyze_table_relationships",
-            "Table relationship analysis with:\n" +
-            "- Foreign key dependency graph\n" +
-            "- Orphan table detection\n" +
-            "- Cascading delete chain analysis\n" +
-            "- Hub entity identification"),
-        }],
-      };
-    }
     try {
       const result = await analyzeTableRelationships(schema);
       return { content: [{ type: "text", text: result }] };
