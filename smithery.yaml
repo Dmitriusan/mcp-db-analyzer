@@ -1,0 +1,39 @@
+name: mcp-db-analyzer
+displayName: Database Analyzer
+description: MCP server for PostgreSQL, MySQL, and SQLite schema analysis, index optimization, and query plan inspection
+version: 0.2.4
+license: MIT
+homepage: https://github.com/Dmitriusan/mcp-db-analyzer
+npm: mcp-db-analyzer
+categories:
+  - developer-tools
+  - databases
+keywords:
+  - database
+  - postgresql
+  - mysql
+  - sqlite
+  - schema
+  - index-optimization
+  - query-plan
+tools:
+  - name: inspect_schema
+    description: List tables, inspect columns, constraints, and relationships
+  - name: analyze_indexes
+    description: Find unused indexes and identify missing index opportunities
+  - name: explain_query
+    description: Run EXPLAIN / EXPLAIN ANALYZE on a query and surface bottlenecks
+  - name: analyze_table_bloat
+    description: Detect dead tuples and table fragmentation (PostgreSQL)
+  - name: suggest_missing_indexes
+    description: Generate index recommendations based on column cardinality and usage patterns
+  - name: analyze_slow_queries
+    description: Surface the slowest queries by cumulative execution time
+  - name: analyze_connections
+    description: Inspect active connections and idle-in-transaction sessions
+  - name: analyze_table_relationships
+    description: Visualize foreign key graph and detect orphan tables
+  - name: analyze_vacuum
+    description: Check PostgreSQL VACUUM status and autovacuum health
+transport:
+  - stdio
