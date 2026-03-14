@@ -1,6 +1,6 @@
 name: mcp-db-analyzer
-displayName: Database Analyzer
-description: MCP server for PostgreSQL, MySQL, and SQLite schema analysis, index optimization, and query plan inspection
+displayName: Java Database Analyzer
+description: Connects Claude Code and Cursor to your PostgreSQL, MySQL, or SQLite database for schema analysis, index optimization, query plan inspection, and slow query detection
 version: 0.2.4
 license: MIT
 homepage: https://github.com/Dmitriusan/mcp-db-analyzer
