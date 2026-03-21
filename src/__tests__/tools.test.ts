@@ -140,6 +140,100 @@ describe("explain_query", () => {
     expect(result).toContain("users");
     expect(result).toContain("cost=0..35.5");
   });
+
+  it("should detect stale statistics when actual rows far exceed estimate (overestimate)", async () => {
+    mockQueryUnsafe.mockResolvedValueOnce({
+      rows: [
+        {
+          "QUERY PLAN": [
+            {
+              Plan: {
+                "Node Type": "Index Scan",
+                "Relation Name": "events",
+                "Startup Cost": 0.4,
+                "Total Cost": 8.5,
+                "Plan Rows": 1,
+                "Plan Width": 48,
+                "Actual Startup Time": 0.1,
+                "Actual Total Time": 25.0,
+                "Actual Rows": 50000,
+                "Actual Loops": 1,
+              },
+              "Planning Time": 0.5,
+              "Execution Time": 25.0,
+            },
+          ],
+        },
+      ],
+    });
+
+    const result = await explainQuery("SELECT * FROM events WHERE created_at > $1", true);
+    expect(result).toContain("Stale statistics");
+    expect(result).toContain("events");
+    expect(result).toContain("ANALYZE");
+  });
+
+  it("should detect stale statistics when actual rows far below estimate (underestimate)", async () => {
+    mockQueryUnsafe.mockResolvedValueOnce({
+      rows: [
+        {
+          "QUERY PLAN": [
+            {
+              Plan: {
+                "Node Type": "Seq Scan",
+                "Relation Name": "products",
+                "Startup Cost": 0.0,
+                "Total Cost": 1200.0,
+                "Plan Rows": 80000,
+                "Plan Width": 120,
+                "Actual Startup Time": 0.1,
+                "Actual Total Time": 3.2,
+                "Actual Rows": 100,
+                "Actual Loops": 1,
+              },
+              "Planning Time": 0.3,
+              "Execution Time": 3.2,
+            },
+          ],
+        },
+      ],
+    });
+
+    const result = await explainQuery("SELECT * FROM products WHERE discontinued = true", true);
+    expect(result).toContain("Stale statistics");
+    expect(result).toContain("products");
+    expect(result).toContain("ANALYZE");
+  });
+
+  it("should not warn about statistics when actual vs estimated rows are close", async () => {
+    mockQueryUnsafe.mockResolvedValueOnce({
+      rows: [
+        {
+          "QUERY PLAN": [
+            {
+              Plan: {
+                "Node Type": "Index Scan",
+                "Relation Name": "users",
+                "Startup Cost": 0.4,
+                "Total Cost": 5.0,
+                "Plan Rows": 100,
+                "Plan Width": 64,
+                "Actual Startup Time": 0.05,
+                "Actual Total Time": 0.8,
+                "Actual Rows": 95,
+                "Actual Loops": 1,
+              },
+              "Planning Time": 0.2,
+              "Execution Time": 0.9,
+            },
+          ],
+        },
+      ],
+    });
+
+    const result = await explainQuery("SELECT * FROM users WHERE active = true", true);
+    expect(result).not.toContain("Stale statistics");
+  });
 });
 
 describe("analyze_table_bloat", () => {

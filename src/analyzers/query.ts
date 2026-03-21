@@ -366,6 +366,21 @@ function collectWarnings(node: ExplainNode): string[] {
     );
   }
 
+  // Stale statistics: actual rows deviate significantly from planner estimate
+  if (
+    node["Actual Rows"] !== undefined &&
+    node["Plan Rows"] > 0 &&
+    node["Actual Rows"] > 0
+  ) {
+    const ratio = node["Actual Rows"] / node["Plan Rows"];
+    if (ratio > 10 || ratio < 0.1) {
+      const relation = node["Relation Name"] ?? node["Node Type"];
+      warnings.push(
+        `**Stale statistics** on \`${relation}\`: planner estimated ${node["Plan Rows"]} rows but got ${node["Actual Rows"]} (${ratio > 1 ? ratio.toFixed(0) + "× over" : (1 / ratio).toFixed(0) + "× under"}estimate). Run \`ANALYZE ${node["Relation Name"] ?? ""}\` to refresh table statistics.`
+      );
+    }
+  }
+
   if (node.Plans) {
     for (const child of node.Plans) {
       warnings.push(...collectWarnings(child));

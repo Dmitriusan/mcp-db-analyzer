@@ -24,23 +24,24 @@ beforeEach(() => {
 describe("analyze_slow_queries — extended tests", () => {
   it("should handle MySQL driver", async () => {
     mockGetDriverType.mockReturnValue("mysql");
-    // MySQL slow queries
+    // MySQL performance_schema returns uppercase column names
     mockQuery.mockResolvedValueOnce({
       rows: [
         {
-          digest_text: "SELECT * FROM users WHERE id = ?",
-          count_star: 500,
-          avg_timer_wait: 150000000000, // 150ms in picoseconds
-          sum_timer_wait: 75000000000000,
-          sum_rows_sent: 500,
-          sum_rows_examined: 50000,
+          DIGEST_TEXT: "SELECT * FROM users WHERE id = ?",
+          COUNT_STAR: 500,
+          AVG_TIMER_WAIT: 150.5,
+          SUM_TIMER_WAIT: 75250,
+          SUM_ROWS_SENT: 500,
+          SUM_ROWS_EXAMINED: 50000,
         },
       ],
     });
 
     const result = await analyzeSlowQueries("public", 10);
-    expect(result).toContain("Slow Query Analysis");
-    expect(result).toContain("SELECT");
+    expect(result).toContain("Slow Query Analysis (MySQL");
+    expect(result).toContain("150.5ms");
+    expect(result).toContain("SELECT * FROM users WHERE id = ?");
   });
 
   it("should handle queries with very high mean times", async () => {
