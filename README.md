@@ -376,6 +376,13 @@ Analyze PostgreSQL VACUUM maintenance status. Checks dead tuple ratios, vacuum s
 - **Connection analysis**: `analyze_connections` is PostgreSQL/MySQL only. Not available for SQLite databases.
 - **Vacuum analysis**: `analyze_vacuum` is PostgreSQL only. For MySQL, use `OPTIMIZE TABLE` or `analyze_table_bloat`.
 
+## Part of the MCP Java Backend Suite
+
+- [mcp-spring-boot-actuator](https://www.npmjs.com/package/mcp-spring-boot-actuator) — Spring Boot health, metrics, and bean analysis
+- [mcp-jvm-diagnostics](https://www.npmjs.com/package/mcp-jvm-diagnostics) — Thread dump and GC log analysis
+- [mcp-redis-diagnostics](https://www.npmjs.com/package/mcp-redis-diagnostics) — Redis memory, slowlog, and client diagnostics
+- [mcp-migration-advisor](https://www.npmjs.com/package/mcp-migration-advisor) — Flyway/Liquibase migration risk analysis
+
 ## License
 
 MIT

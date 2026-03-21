@@ -1,0 +1,31 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.dmitriusan/mcp-db-analyzer",
+  "description": "MCP server for PostgreSQL, MySQL, and SQLite schema analysis, index optimization, and query plan inspection",
+  "repository": {
+    "url": "https://github.com/Dmitriusan/mcp-db-analyzer",
+    "source": "github"
+  },
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "mcp-db-analyzer",
+      "version": "0.2.4",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "DATABASE_URL",
+          "description": "Database connection string. PostgreSQL: postgresql://user:pass@host/db. MySQL: mysql://user:pass@host/db. SQLite: /path/to/db.sqlite",
+          "required": true
+        },
+        {
+          "name": "DB_DRIVER",
+          "description": "Database driver override: postgresql, mysql, or sqlite. Auto-detected from DATABASE_URL if not set.",
+          "required": false
+        }
+      ]
+    }
+  ]
+}

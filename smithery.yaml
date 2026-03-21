@@ -16,6 +16,18 @@ keywords:
   - schema
   - index-optimization
   - query-plan
+configSchema:
+  type: object
+  properties:
+    DATABASE_URL:
+      type: string
+      description: "Database connection string. PostgreSQL: postgresql://user:pass@host/db. MySQL: mysql://user:pass@host/db. SQLite: /path/to/db.sqlite"
+    DB_DRIVER:
+      type: string
+      enum: [postgresql, mysql, sqlite]
+      description: "Database driver override. Auto-detected from DATABASE_URL if not set."
+  required:
+    - DATABASE_URL
 tools:
   - name: inspect_schema
     description: List tables, inspect columns, constraints, and relationships
