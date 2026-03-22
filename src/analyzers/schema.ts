@@ -267,6 +267,10 @@ export async function inspectTable(
 }
 
 async function inspectTableSqlite(tableName: string): Promise<string> {
+  // Escape double-quote characters so a table name containing `"` (e.g. `weird"table`)
+  // does not break the PRAGMA queries or the row-count SELECT.
+  const escaped = tableName.replace(/"/g, '""');
+
   const cols = await query<{
     cid: number;
     name: string;
@@ -274,7 +278,7 @@ async function inspectTableSqlite(tableName: string): Promise<string> {
     notnull: number;
     dflt_value: string | null;
     pk: number;
-  }>(`PRAGMA table_info("${tableName}")`);
+  }>(`PRAGMA table_info("${escaped}")`);
 
   if (cols.rows.length === 0) {
     return `Table '${tableName}' not found.`;
@@ -284,7 +288,7 @@ async function inspectTableSqlite(tableName: string): Promise<string> {
 
   // Row count
   const countResult = await query<{ cnt: number }>(
-    `SELECT count(*) as cnt FROM "${tableName}"`
+    `SELECT count(*) as cnt FROM "${escaped}"`
   );
   lines.push(`- **Rows**: ${countResult.rows[0]?.cnt ?? 0}`);
   lines.push("");
@@ -305,7 +309,7 @@ async function inspectTableSqlite(tableName: string): Promise<string> {
     table: string;
     from: string;
     to: string;
-  }>(`PRAGMA foreign_key_list("${tableName}")`);
+  }>(`PRAGMA foreign_key_list("${escaped}")`);
 
   if (fks.rows.length > 0) {
     lines.push("\n### Foreign Keys\n");
@@ -321,7 +325,7 @@ async function inspectTableSqlite(tableName: string): Promise<string> {
     seq: number;
     name: string;
     unique: number;
-  }>(`PRAGMA index_list("${tableName}")`);
+  }>(`PRAGMA index_list("${escaped}")`);
 
   if (indexes.rows.length > 0) {
     lines.push("\n### Indexes\n");
@@ -329,7 +333,7 @@ async function inspectTableSqlite(tableName: string): Promise<string> {
     lines.push("|------|--------|---------|");
     for (const idx of indexes.rows) {
       const idxCols = await query<{ seqno: number; name: string }>(
-        `PRAGMA index_info("${idx.name}")`
+        `PRAGMA index_info("${idx.name.replace(/"/g, '""')}")`
       );
       const colNames = idxCols.rows.map(c => c.name).join(", ");
       lines.push(`| ${idx.name} | ${idx.unique ? 'YES' : 'NO'} | ${colNames} |`);
