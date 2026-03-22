@@ -184,6 +184,32 @@ async function analyzeMysqlSlowQueries(limit: number): Promise<string> {
       );
     }
 
+    // Recommendations
+    sections.push("");
+    sections.push("### Recommendations");
+
+    const highCallSlow = result.rows.filter(
+      (r) => r.COUNT_STAR > 100 && r.AVG_TIMER_WAIT > 100
+    );
+    if (highCallSlow.length > 0) {
+      sections.push(
+        `- **${highCallSlow.length} high-impact queries** — called >100 times with >100ms avg. Prioritize these for optimization.`
+      );
+    }
+
+    const fewRowsSlow = result.rows.filter(
+      (r) => r.AVG_TIMER_WAIT > 50 && r.SUM_ROWS_SENT / Math.max(r.COUNT_STAR, 1) < 10
+    );
+    if (fewRowsSlow.length > 0) {
+      sections.push(
+        `- **${fewRowsSlow.length} queries returning few rows but slow** — likely missing indexes. Use \`explain_query\` to check.`
+      );
+    }
+
+    if (highCallSlow.length === 0 && fewRowsSlow.length === 0) {
+      sections.push("- No critical patterns detected. Monitor trends over time.");
+    }
+
     return sections.join("\n");
   } catch {
     return "## Slow Query Analysis\n\nUnable to query performance_schema. Ensure it is enabled and the user has SELECT permission.";

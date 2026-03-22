@@ -112,6 +112,38 @@ describe("explain_query", () => {
     expect(result).toContain("only allowed on pure SELECT");
   });
 
+  it("should not reject SELECT with DML keyword in a string literal", async () => {
+    // A legitimate query whose WHERE clause contains a string value that happens
+    // to include a DML keyword — must not be blocked.
+    mockQueryUnsafe.mockResolvedValueOnce({
+      rows: [
+        {
+          "QUERY PLAN": [
+            {
+              Plan: {
+                "Node Type": "Seq Scan",
+                "Relation Name": "audit_log",
+                "Startup Cost": 0.0,
+                "Total Cost": 12.5,
+                "Plan Rows": 1,
+                "Plan Width": 64,
+              },
+              "Planning Time": 0.1,
+              "Execution Time": 0.2,
+            },
+          ],
+        },
+      ],
+    });
+
+    const result = await explainQuery(
+      "SELECT * FROM audit_log WHERE action = 'DELETE user record'",
+      true
+    );
+    expect(result).not.toContain("only allowed on pure SELECT");
+    expect(result).toContain("Query Plan Analysis");
+  });
+
   it("should format query plan with cost estimates", async () => {
     mockQueryUnsafe.mockResolvedValueOnce({
       rows: [

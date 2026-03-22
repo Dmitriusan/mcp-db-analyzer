@@ -221,6 +221,70 @@ describe("analyzeSlowQueries — MySQL path", () => {
   });
 });
 
+// --- MySQL slow query recommendations ---
+
+describe("analyzeSlowQueries — MySQL recommendations", () => {
+  it("detects high-impact queries (>100 calls, >100ms avg)", async () => {
+    mockQuery.mockResolvedValueOnce({
+      rows: [
+        {
+          DIGEST_TEXT: "SELECT * FROM orders WHERE user_id = ?",
+          COUNT_STAR: 500,
+          SUM_TIMER_WAIT: 100000,
+          AVG_TIMER_WAIT: 200,
+          SUM_ROWS_EXAMINED: 50000,
+          SUM_ROWS_SENT: 500,
+        },
+      ],
+    });
+
+    const result = await analyzeSlowQueries("public", 10);
+    expect(result).toContain("### Recommendations");
+    expect(result).toContain("high-impact queries");
+    expect(result).toContain("Prioritize");
+  });
+
+  it("detects slow queries returning few rows (missing index candidates)", async () => {
+    mockQuery.mockResolvedValueOnce({
+      rows: [
+        {
+          DIGEST_TEXT: "SELECT * FROM users WHERE email = ?",
+          COUNT_STAR: 200,
+          SUM_TIMER_WAIT: 20000,
+          AVG_TIMER_WAIT: 100,
+          SUM_ROWS_EXAMINED: 200000,
+          SUM_ROWS_SENT: 200, // 1 row per call
+        },
+      ],
+    });
+
+    const result = await analyzeSlowQueries("public", 10);
+    expect(result).toContain("### Recommendations");
+    expect(result).toContain("few rows but slow");
+    expect(result).toContain("missing indexes");
+    expect(result).toContain("explain_query");
+  });
+
+  it("shows no-critical-patterns message when queries look healthy", async () => {
+    mockQuery.mockResolvedValueOnce({
+      rows: [
+        {
+          DIGEST_TEXT: "SELECT id FROM users",
+          COUNT_STAR: 10,
+          SUM_TIMER_WAIT: 50,
+          AVG_TIMER_WAIT: 5,
+          SUM_ROWS_EXAMINED: 100,
+          SUM_ROWS_SENT: 100,
+        },
+      ],
+    });
+
+    const result = await analyzeSlowQueries("public", 10);
+    expect(result).toContain("### Recommendations");
+    expect(result).toContain("No critical patterns detected");
+  });
+});
+
 // --- SQLite fallback (verify routing) ---
 
 describe("driver routing — SQLite fallback", () => {
