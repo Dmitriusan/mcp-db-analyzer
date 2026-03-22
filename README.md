@@ -21,6 +21,19 @@ Other analytical MCP servers (CrystalDBA, pg-dash, MCP-PostgreSQL-Ops) cover Pos
 - **Markdown output** optimized for LLM consumption
 - **Zero configuration** — just set `DATABASE_URL`
 
+## Pro Tier
+
+**Generate exportable diagnostic reports (HTML + PDF)** with a Pro license key.
+
+- Full JVM thread dump analysis report with actionable recommendations
+- PDF export for sharing with your team
+- Priority support
+
+<!-- TODO: replace placeholder Stripe Payment Link once STRIPE_SECRET_KEY is configured -->
+**$9.99/month** — [Get Pro License](https://buy.stripe.com/PLACEHOLDER)
+
+Pro license key activates the `generate_report` MCP tool in mcp-jvm-diagnostics.
+
 ## Installation
 
 ```bash
