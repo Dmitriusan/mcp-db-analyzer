@@ -47,7 +47,9 @@ export async function explainQuery(
   // EXPLAIN ANALYZE actually executes the query, so we must reject anything
   // that could modify data — including CTEs with write operations.
   if (analyze) {
-    const upperSql = sql.trim().toUpperCase();
+    // Strip single-quoted string literals before scanning for DML keywords so that
+    // a query like `SELECT ... WHERE status = 'DELETE me'` is not falsely rejected.
+    const upperSql = sql.trim().toUpperCase().replace(/'[^']*'/g, "''");
     const DML_KEYWORDS = ["INSERT", "UPDATE", "DELETE", "DROP", "ALTER", "TRUNCATE", "CREATE", "GRANT", "REVOKE", "COPY"];
     const containsDml = DML_KEYWORDS.some(
       (kw) => upperSql.includes(kw + " ") || upperSql.includes(kw + "\n") || upperSql.includes(kw + "\t") || upperSql.endsWith(kw)
