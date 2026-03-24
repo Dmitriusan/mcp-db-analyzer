@@ -237,6 +237,40 @@ describe("explain_query", () => {
     expect(result).toContain("ANALYZE");
   });
 
+  it("should detect stale statistics when planner estimates 0 rows but actual > 0", async () => {
+    mockQueryUnsafe.mockResolvedValueOnce({
+      rows: [
+        {
+          "QUERY PLAN": [
+            {
+              Plan: {
+                "Node Type": "Index Scan",
+                "Relation Name": "sessions",
+                "Startup Cost": 0.4,
+                "Total Cost": 1.0,
+                "Plan Rows": 0,
+                "Plan Width": 32,
+                "Actual Startup Time": 0.1,
+                "Actual Total Time": 2.5,
+                "Actual Rows": 4200,
+                "Actual Loops": 1,
+              },
+              "Planning Time": 0.2,
+              "Execution Time": 2.5,
+            },
+          ],
+        },
+      ],
+    });
+
+    const result = await explainQuery("SELECT * FROM sessions WHERE token = $1", true);
+    expect(result).toContain("Stale statistics");
+    expect(result).toContain("sessions");
+    expect(result).toContain("0 rows");
+    expect(result).toContain("4200");
+    expect(result).toContain("ANALYZE");
+  });
+
   it("should not warn about statistics when actual vs estimated rows are close", async () => {
     mockQueryUnsafe.mockResolvedValueOnce({
       rows: [

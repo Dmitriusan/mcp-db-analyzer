@@ -368,18 +368,22 @@ function collectWarnings(node: ExplainNode): string[] {
     );
   }
 
-  // Stale statistics: actual rows deviate significantly from planner estimate
-  if (
-    node["Actual Rows"] !== undefined &&
-    node["Plan Rows"] > 0 &&
-    node["Actual Rows"] > 0
-  ) {
-    const ratio = node["Actual Rows"] / node["Plan Rows"];
-    if (ratio > 10 || ratio < 0.1) {
-      const relation = node["Relation Name"] ?? node["Node Type"];
+  // Stale statistics: actual rows deviate significantly from planner estimate.
+  // Handle Plan Rows = 0 separately — the planner expected an empty result but
+  // got rows, which is the most misleading case for query planning.
+  if (node["Actual Rows"] !== undefined) {
+    const relation = node["Relation Name"] ?? node["Node Type"];
+    if (node["Plan Rows"] === 0 && node["Actual Rows"] > 0) {
       warnings.push(
-        `**Stale statistics** on \`${relation}\`: planner estimated ${node["Plan Rows"]} rows but got ${node["Actual Rows"]} (${ratio > 1 ? ratio.toFixed(0) + "× over" : (1 / ratio).toFixed(0) + "× under"}estimate). Run \`ANALYZE ${node["Relation Name"] ?? ""}\` to refresh table statistics.`
+        `**Stale statistics** on \`${relation}\`: planner estimated 0 rows but got ${node["Actual Rows"]}. Run \`ANALYZE ${node["Relation Name"] ?? ""}\` to refresh table statistics.`
       );
+    } else if (node["Plan Rows"] > 0 && node["Actual Rows"] > 0) {
+      const ratio = node["Actual Rows"] / node["Plan Rows"];
+      if (ratio > 10 || ratio < 0.1) {
+        warnings.push(
+          `**Stale statistics** on \`${relation}\`: planner estimated ${node["Plan Rows"]} rows but got ${node["Actual Rows"]} (${ratio > 1 ? ratio.toFixed(0) + "× over" : (1 / ratio).toFixed(0) + "× under"}estimate). Run \`ANALYZE ${node["Relation Name"] ?? ""}\` to refresh table statistics.`
+        );
+      }
     }
   }
 
