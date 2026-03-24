@@ -93,7 +93,7 @@ async function analyzePostgresConnections(): Promise<string> {
     lines.push("| PID | User | Duration | Query |");
     lines.push("|-----|------|----------|-------|");
     for (const row of idleTxn.rows) {
-      lines.push(`| ${row.pid} | ${row.usename} | ${row.duration} | ${row.query} |`);
+      lines.push(`| ${row.pid} | ${row.usename} | ${row.duration} | ${row.query.replace(/\|/g, "\\|")} |`);
     }
     lines.push("");
   }
@@ -124,7 +124,7 @@ async function analyzePostgresConnections(): Promise<string> {
     lines.push("| PID | User | Duration | Wait | Query |");
     lines.push("|-----|------|----------|------|-------|");
     for (const row of longQueries.rows) {
-      lines.push(`| ${row.pid} | ${row.usename} | ${row.duration} | ${row.wait_event_type || "-"} | ${row.query} |`);
+      lines.push(`| ${row.pid} | ${row.usename} | ${row.duration} | ${row.wait_event_type || "-"} | ${row.query.replace(/\|/g, "\\|")} |`);
     }
     lines.push("");
   }
@@ -163,7 +163,7 @@ async function analyzePostgresConnections(): Promise<string> {
     lines.push("| Blocked PID | Blocking PID | Blocked Query | Blocking Query |");
     lines.push("|-------------|--------------|---------------|----------------|");
     for (const row of blocked.rows) {
-      lines.push(`| ${row.blocked_pid} | ${row.blocking_pid} | ${row.blocked_query} | ${row.blocking_query} |`);
+      lines.push(`| ${row.blocked_pid} | ${row.blocking_pid} | ${row.blocked_query.replace(/\|/g, "\\|")} | ${row.blocking_query.replace(/\|/g, "\\|")} |`);
     }
     lines.push("");
   }

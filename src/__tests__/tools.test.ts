@@ -711,6 +711,34 @@ describe("analyze_connections", () => {
     expect(result).toContain("PgBouncer");
   });
 
+  it("should escape pipe characters in query text to avoid breaking markdown tables", async () => {
+    mockGetDriverType.mockReturnValue("postgres");
+    mockQuery.mockResolvedValueOnce({
+      rows: [{ state: "idle in transaction", count: "1" }],
+    });
+    mockQuery.mockResolvedValueOnce({ rows: [{ setting: "100" }] });
+    // Idle-in-transaction connection whose query text contains a pipe
+    mockQuery.mockResolvedValueOnce({
+      rows: [
+        {
+          pid: "5678",
+          usename: "app",
+          state: "idle in transaction",
+          duration: "00:01:00",
+          query: "SELECT a || b FROM t WHERE x | y = 1",
+        },
+      ],
+    });
+    mockQuery.mockResolvedValueOnce({ rows: [] }); // long queries
+    mockQuery.mockResolvedValueOnce({ rows: [] }); // blocked
+
+    const result = await analyzeConnections();
+    // Pipe characters in query text must be escaped so the markdown table stays valid
+    expect(result).toContain("\\|");
+    // The query content still appears (just with escaped pipes)
+    expect(result).toContain("SELECT a");
+  });
+
   it("should report no issues when connections are healthy", async () => {
     mockGetDriverType.mockReturnValue("postgres");
     mockQuery.mockResolvedValueOnce({
