@@ -57,7 +57,12 @@ export function createMysqlAdapter(): DbAdapter {
           await conn.rollback();
           return { rows: rows as T[] };
         } catch (err) {
-          await conn.rollback();
+          try {
+            await conn.rollback();
+          } catch {
+            // Transaction may not have started (e.g. beginTransaction threw);
+            // suppress the secondary error so the original cause is preserved.
+          }
           throw err;
         }
       } finally {
