@@ -268,4 +268,28 @@ describe("analyze_connections — MySQL long-running", () => {
     expect(result).toContain("120");
     expect(result).toContain("Sending data");
   });
+
+  it("should render null INFO column as dash", async () => {
+    mockGetDriverType.mockReturnValue("mysql");
+    mockQuery.mockResolvedValueOnce({
+      rows: [{ state: "Query", count: "1" }],
+    });
+    mockQuery.mockResolvedValueOnce({
+      rows: [
+        {
+          id: "99",
+          user: "root",
+          time: "45",
+          state: "Locked",
+          info: null,
+        },
+      ],
+    });
+
+    const result = await analyzeConnections();
+    expect(result).toContain("Long-Running Queries");
+    expect(result).toContain("99");
+    expect(result).not.toContain("null");
+    expect(result).toMatch(/\|\s*-\s*\|/);
+  });
 });

@@ -229,7 +229,7 @@ async function analyzeMysqlConnections(): Promise<string> {
     user: string;
     time: string;
     state: string;
-    info: string;
+    info: string | null;
   }
   const longQueries = await query<LongQuery>(
     `SELECT ID AS id, USER AS user, TIME AS time, STATE AS state, LEFT(INFO, 100) AS info
@@ -243,7 +243,8 @@ async function analyzeMysqlConnections(): Promise<string> {
     lines.push("| ID | User | Duration (s) | State | Query |");
     lines.push("|-----|------|-------------|-------|-------|");
     for (const row of longQueries.rows) {
-      lines.push(`| ${row.id} | ${row.user} | ${row.time} | ${row.state} | ${row.info} |`);
+      const info = row.info ? row.info.replace(/\|/g, "\\|") : "-";
+      lines.push(`| ${row.id} | ${row.user} | ${row.time} | ${row.state} | ${info} |`);
     }
     lines.push("");
   }
