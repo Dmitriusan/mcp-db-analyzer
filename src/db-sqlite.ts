@@ -19,6 +19,9 @@ export function createSqliteAdapter(): DbAdapter {
 
       db = new Database(dbPath, { readonly: true });
       db.pragma("journal_mode = WAL");
+      // Enforce read-only at the SQL engine level, not just at the file level.
+      // This prevents any write attempt from succeeding even if the OS permits it.
+      db.pragma("query_only = ON");
     }
     return db;
   }
