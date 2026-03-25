@@ -67,6 +67,15 @@ describe("formatToolError", () => {
     expect(result).toContain("Error inspecting schema: string error");
   });
 
+  it("should sanitize password= key-value style credentials", () => {
+    const err = new Error(
+      "FATAL: password authentication failed host=db.example.com password=s3cr3t dbname=myapp"
+    );
+    const result = formatToolError("inspecting schema", err);
+    expect(result).not.toContain("s3cr3t");
+    expect(result).toContain("password=****");
+  });
+
   it("should handle undefined/null errors", () => {
     const result = formatToolError("inspecting schema", undefined);
     expect(result).toContain("Error inspecting schema: undefined");
