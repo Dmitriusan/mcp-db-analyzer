@@ -4,7 +4,11 @@
  */
 export function formatToolError(context: string, err: unknown): string {
   const msg = err instanceof Error ? err.message : String(err);
-  const sanitized = msg.replace(/\/\/[^@]+@/g, "//****:****@");
+  // Sanitize URL-style credentials (postgresql://user:pass@host) and
+  // key-value style passwords (password=secret) used by libpq and JDBC.
+  const sanitized = msg
+    .replace(/\/\/[^@]+@/g, "//****:****@")
+    .replace(/\bpassword\s*=\s*\S+/gi, "password=****");
   const isConnectionError =
     /ECONNREFUSED|ENOTFOUND|ETIMEDOUT|EHOSTUNREACH|getaddrinfo|connect ECONNRESET|password authentication failed|Access denied|no pg_hba\.conf|connection refused|Connection lost|SQLITE_CANTOPEN/i.test(
       msg
