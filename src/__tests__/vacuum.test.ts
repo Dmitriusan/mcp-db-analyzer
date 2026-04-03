@@ -430,4 +430,37 @@ describe("edge cases", () => {
     const result = await analyzeVacuum("custom_schema");
     expect(result).toContain("custom_schema");
   });
+
+  it("should still return table stats when pg_settings query fails due to permissions", async () => {
+    // Stats query succeeds
+    mockQuery.mockResolvedValueOnce({
+      rows: [
+        {
+          table_name: "orders",
+          n_live_tup: "5000",
+          n_dead_tup: "50",
+          last_vacuum: "2026-03-20",
+          last_autovacuum: null,
+          last_analyze: "2026-03-20",
+          last_autoanalyze: null,
+          vacuum_count: "2",
+          autovacuum_count: "0",
+          analyze_count: "2",
+          autoanalyze_count: "0",
+        },
+      ],
+    });
+    // Settings query fails (e.g. permission denied on pg_settings)
+    mockQuery.mockRejectedValueOnce(new Error("permission denied for table pg_settings"));
+
+    const result = await analyzeVacuum();
+    // Table stats must still appear
+    expect(result).toContain("VACUUM Analysis");
+    expect(result).toContain("orders");
+    expect(result).toContain("All Tables");
+    // A note about unavailable settings
+    expect(result).toContain("Autovacuum configuration could not be read");
+    // No autovacuum configuration section (settings were empty)
+    expect(result).not.toContain("Autovacuum Configuration");
+  });
 });

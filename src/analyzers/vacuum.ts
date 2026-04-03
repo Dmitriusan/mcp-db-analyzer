@@ -68,16 +68,29 @@ export async function analyzeVacuum(
     return `No user tables found in schema '${schema}'.`;
   }
 
-  // Get autovacuum settings
-  const settings = await query<AutovacuumSetting>(`
-    SELECT name, setting
-    FROM pg_settings
-    WHERE name LIKE 'autovacuum%'
-    ORDER BY name
-  `);
+  // Get autovacuum settings. pg_settings requires superuser or pg_read_all_settings
+  // in some PostgreSQL configurations — don't let a permission error discard the
+  // table stats we already fetched.
+  let settingsRows: AutovacuumSetting[] = [];
+  let settingsUnavailable = false;
+  try {
+    const settings = await query<AutovacuumSetting>(`
+      SELECT name, setting
+      FROM pg_settings
+      WHERE name LIKE 'autovacuum%'
+      ORDER BY name
+    `);
+    settingsRows = settings.rows;
+  } catch {
+    settingsUnavailable = true;
+  }
 
-  const findings = analyzeFindings(stats.rows, settings.rows);
-  return formatVacuumReport(schema, stats.rows, settings.rows, findings);
+  const findings = analyzeFindings(stats.rows, settingsRows);
+  const report = formatVacuumReport(schema, stats.rows, settingsRows, findings);
+  if (settingsUnavailable) {
+    return report + "\n\n*Note: Autovacuum configuration could not be read — the database user may need pg_read_all_settings or superuser privileges.*";
+  }
+  return report;
 }
 
 export function analyzeFindings(
