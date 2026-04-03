@@ -92,8 +92,11 @@ async function listTablesSqlite(): Promise<string> {
   lines.push("|-------|-------------|------------|");
   for (const row of result.rows) {
     // SQLite doesn't have built-in row count or size — use count
+    // Escape embedded double-quote characters so table names like `weird"table` don't
+    // break the identifier quoting (same convention used in inspectTableSqlite).
+    const escapedName = row.name.replace(/"/g, '""');
     const countResult = await query<{ cnt: number }>(
-      `SELECT count(*) as cnt FROM "${row.name}"`
+      `SELECT count(*) as cnt FROM "${escapedName}"`
     );
     const cnt = countResult.rows[0]?.cnt ?? 0;
     lines.push(`| ${row.name} | ${cnt} | - |`);

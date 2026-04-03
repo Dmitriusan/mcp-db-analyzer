@@ -60,6 +60,21 @@ describe("inspect_schema — listTables", () => {
     const result = await listTables("empty_schema");
     expect(result).toContain("No tables found");
   });
+
+  it("should escape double-quote characters in SQLite table names for row count query", async () => {
+    mockGetDriverType.mockReturnValueOnce("sqlite");
+    // sqlite_master returns a table whose name contains a double-quote character
+    mockQuery.mockResolvedValueOnce({ rows: [{ name: 'weird"table' }] });
+    // row count query for that table
+    mockQuery.mockResolvedValueOnce({ rows: [{ cnt: 42 }] });
+
+    const result = await listTables();
+    // The count SELECT must use "" to escape the embedded " (SQLite standard quoting)
+    const countCall = mockQuery.mock.calls[1];
+    expect(countCall[0]).toContain('"weird""table"');
+    expect(result).toContain('weird"table');
+    expect(result).toContain("42");
+  });
 });
 
 describe("analyze_indexes — analyzeIndexUsage", () => {
