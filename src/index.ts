@@ -267,7 +267,7 @@ server.tool(
 // --- Tool: analyze_slow_queries ---
 server.tool(
   "analyze_slow_queries",
-  "Find the slowest queries using pg_stat_statements (PostgreSQL) or performance_schema (MySQL). Shows execution times, call counts, and optimization recommendations.",
+  "Find the slowest queries using pg_stat_statements (PostgreSQL) or performance_schema (MySQL). Shows execution times, call counts, and optimization recommendations. PostgreSQL requires the pg_stat_statements extension to be installed and listed in shared_preload_libraries — the tool returns setup instructions if the extension is missing. Not available for SQLite.",
   {
     schema: z
       .string()
