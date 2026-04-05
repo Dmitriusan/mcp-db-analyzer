@@ -570,7 +570,8 @@ describe("analyze_table_relationships", () => {
     expect(result).toContain("Cascading Delete");
     expect(result).toContain("users");
     expect(result).toContain("cascades to");
-    expect(result).toContain("further cascades");
+    expect(result).toContain("orders");
+    expect(result).toContain("order_items");
     expect(result).toContain("WARNING");
   });
 

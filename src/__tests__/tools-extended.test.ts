@@ -293,3 +293,157 @@ describe("analyze_connections — MySQL long-running", () => {
     expect(result).toMatch(/\|\s*-\s*\|/);
   });
 });
+
+describe("analyze_table_relationships — cycle detection", () => {
+  it("should detect a 3-table circular FK dependency (A→B→C→A)", async () => {
+    // tables: a, b, c with FKs a→b, b→c, c→a
+    mockQuery.mockResolvedValueOnce({
+      rows: [{ table_name: "a" }, { table_name: "b" }, { table_name: "c" }],
+    });
+    mockQuery.mockResolvedValueOnce({
+      rows: [
+        {
+          source_table: "a",
+          source_column: "b_id",
+          target_table: "b",
+          target_column: "id",
+          constraint_name: "fk_a_b",
+          on_delete: "NO ACTION",
+          on_update: "NO ACTION",
+        },
+        {
+          source_table: "b",
+          source_column: "c_id",
+          target_table: "c",
+          target_column: "id",
+          constraint_name: "fk_b_c",
+          on_delete: "NO ACTION",
+          on_update: "NO ACTION",
+        },
+        {
+          source_table: "c",
+          source_column: "a_id",
+          target_table: "a",
+          target_column: "id",
+          constraint_name: "fk_c_a",
+          on_delete: "NO ACTION",
+          on_update: "NO ACTION",
+        },
+      ],
+    });
+
+    const result = await analyzeTableRelationships("public");
+    expect(result).toContain("Circular FK Dependencies");
+    expect(result).toContain("→");
+    // All three tables should appear in the cycle output
+    expect(result).toMatch(/Circular FK Dependencies[\s\S]*\ba\b[\s\S]*\bb\b/);
+    expect(result).toContain("circular FK reference");
+  });
+
+  it("should detect a self-referential FK cycle (categories→categories)", async () => {
+    mockQuery.mockResolvedValueOnce({
+      rows: [{ table_name: "categories" }],
+    });
+    mockQuery.mockResolvedValueOnce({
+      rows: [
+        {
+          source_table: "categories",
+          source_column: "parent_id",
+          target_table: "categories",
+          target_column: "id",
+          constraint_name: "fk_self",
+          on_delete: "SET NULL",
+          on_update: "NO ACTION",
+        },
+      ],
+    });
+
+    const result = await analyzeTableRelationships("public");
+    expect(result).toContain("Circular FK Dependencies");
+    expect(result).toContain("categories → categories");
+  });
+
+  it("should not report circular dependencies when none exist", async () => {
+    mockQuery.mockResolvedValueOnce({
+      rows: [{ table_name: "users" }, { table_name: "orders" }, { table_name: "items" }],
+    });
+    mockQuery.mockResolvedValueOnce({
+      rows: [
+        {
+          source_table: "orders",
+          source_column: "user_id",
+          target_table: "users",
+          target_column: "id",
+          constraint_name: "fk_order_user",
+          on_delete: "CASCADE",
+          on_update: "NO ACTION",
+        },
+        {
+          source_table: "items",
+          source_column: "order_id",
+          target_table: "orders",
+          target_column: "id",
+          constraint_name: "fk_item_order",
+          on_delete: "CASCADE",
+          on_update: "NO ACTION",
+        },
+      ],
+    });
+
+    const result = await analyzeTableRelationships("public");
+    expect(result).not.toContain("Circular FK Dependencies");
+  });
+
+  it("should show cascade chain at full depth (4-level chain users→orders→items→line_items)", async () => {
+    mockQuery.mockResolvedValueOnce({
+      rows: [
+        { table_name: "users" },
+        { table_name: "orders" },
+        { table_name: "items" },
+        { table_name: "line_items" },
+      ],
+    });
+    mockQuery.mockResolvedValueOnce({
+      rows: [
+        {
+          source_table: "orders",
+          source_column: "user_id",
+          target_table: "users",
+          target_column: "id",
+          constraint_name: "fk_orders_user",
+          on_delete: "CASCADE",
+          on_update: "NO ACTION",
+        },
+        {
+          source_table: "items",
+          source_column: "order_id",
+          target_table: "orders",
+          target_column: "id",
+          constraint_name: "fk_items_order",
+          on_delete: "CASCADE",
+          on_update: "NO ACTION",
+        },
+        {
+          source_table: "line_items",
+          source_column: "item_id",
+          target_table: "items",
+          target_column: "id",
+          constraint_name: "fk_line_items_item",
+          on_delete: "CASCADE",
+          on_update: "NO ACTION",
+        },
+      ],
+    });
+
+    const result = await analyzeTableRelationships("public");
+    expect(result).toContain("Cascading Delete Chains");
+    // Full chain: users → orders → items → line_items must all appear
+    expect(result).toContain("users");
+    expect(result).toContain("orders");
+    expect(result).toContain("items");
+    expect(result).toContain("line_items");
+    // Ensure it's not capped at 2 levels — line_items must appear under the cascade section
+    const cascadeSection = result.slice(result.indexOf("Cascading Delete Chains"));
+    expect(cascadeSection).toContain("line_items");
+  });
+});
