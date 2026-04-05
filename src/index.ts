@@ -300,7 +300,7 @@ server.tool(
 // Tool 7: analyze_connections
 server.tool(
   "analyze_connections",
-  "Analyze active database connections. Detects idle-in-transaction sessions, long-running queries, lock contention, and connection pool utilization. PostgreSQL and MySQL only.",
+  "Analyze active database connections. Detects idle-in-transaction sessions (which hold locks and block other queries), long-running queries (flagged at >30 seconds), lock contention between sessions, and connection pool utilization. PostgreSQL and MySQL only.",
   {
     timeout_ms: timeoutParam,
   },
@@ -325,7 +325,7 @@ server.tool(
 // Tool 8: analyze_table_relationships
 server.tool(
   "analyze_table_relationships",
-  "Analyze foreign key relationships between tables. Builds a dependency graph showing entity connectivity, orphan tables (no FKs), cascading delete chains, and hub entities. Useful for understanding schema design and impact analysis.",
+  "Analyze foreign key relationships between tables. Builds a dependency graph showing entity connectivity, orphan tables (no FKs), cascading delete chains (shown at full depth), hub entities (tables with 5+ FK connections), and circular FK dependencies. Useful for understanding schema design, planning migrations, and impact analysis.",
   {
     schema: z
       .string()
