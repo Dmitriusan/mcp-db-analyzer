@@ -165,6 +165,67 @@ async function analyzeSqliteRelationships(): Promise<string> {
   );
 }
 
+/**
+ * Detect cycles in the FK dependency graph using iterative DFS.
+ * Returns each unique cycle as an ordered list of table names with the
+ * first node repeated at the end to show closure (e.g. ["a","b","c","a"]).
+ */
+function findFkCycles(
+  allTables: string[],
+  graph: Map<string, TableNode>
+): string[][] {
+  const visited = new Set<string>();
+  const onStack = new Set<string>();
+  const stackPath: string[] = [];
+  const cycles: string[][] = [];
+  const seenCycleKeys = new Set<string>();
+
+  function dfs(node: string): void {
+    visited.add(node);
+    onStack.add(node);
+    stackPath.push(node);
+
+    const nodeData = graph.get(node);
+    if (nodeData) {
+      for (const fk of nodeData.outgoing) {
+        const neighbor = fk.target_table;
+        if (onStack.has(neighbor)) {
+          // Back edge found — extract the cycle
+          const cycleStartIdx = stackPath.indexOf(neighbor);
+          if (cycleStartIdx !== -1) {
+            const cycleNodes = stackPath.slice(cycleStartIdx);
+            // Normalize: rotate so lexicographically smallest node is first
+            const minNode = cycleNodes.reduce((a, b) => (a < b ? a : b));
+            const minIdx = cycleNodes.indexOf(minNode);
+            const normalized = [
+              ...cycleNodes.slice(minIdx),
+              ...cycleNodes.slice(0, minIdx),
+            ];
+            const key = normalized.join("\0");
+            if (!seenCycleKeys.has(key)) {
+              seenCycleKeys.add(key);
+              cycles.push([...normalized, normalized[0]]); // close the cycle
+            }
+          }
+        } else if (!visited.has(neighbor)) {
+          dfs(neighbor);
+        }
+      }
+    }
+
+    stackPath.pop();
+    onStack.delete(node);
+  }
+
+  for (const table of allTables) {
+    if (!visited.has(table)) {
+      dfs(table);
+    }
+  }
+
+  return cycles;
+}
+
 function formatRelationshipReport(
   allTables: string[],
   foreignKeys: ForeignKey[]
@@ -241,40 +302,75 @@ function formatRelationshipReport(
     lines.push("");
   }
 
+  // Circular FK dependencies
+  const cycles = findFkCycles(allTables, graph);
+  if (cycles.length > 0) {
+    lines.push("### Circular FK Dependencies\n");
+    lines.push(
+      "These tables form circular foreign key references. Cycles complicate cascade operations, " +
+      "schema migrations, and may cause issues with certain ORMs and migration tools:\n"
+    );
+    for (const cycle of cycles) {
+      lines.push(`- ${cycle.join(" → ")}`);
+    }
+    lines.push(
+      "\n**Note**: Circular FKs are sometimes intentional (e.g., a 'current_record' pointer back to a parent). " +
+      "Review each cycle to confirm the design is correct.\n"
+    );
+  }
+
   // Cascading delete chains
-  const cascadeDeletes = foreignKeys.filter(
-    fk => fk.on_delete === "CASCADE"
-  );
+  const cascadeDeletes = foreignKeys.filter(fk => fk.on_delete === "CASCADE");
   if (cascadeDeletes.length > 0) {
     lines.push("### Cascading Delete Chains\n");
     lines.push("Deleting a row from these parent tables will cascade-delete rows in child tables:\n");
 
-    // Group by target (parent) table
-    const cascadeByParent = new Map<string, ForeignKey[]>();
+    // Build parent→children map for cascade edges only
+    const cascadeChildren = new Map<string, string[]>();
     for (const fk of cascadeDeletes) {
-      const existing = cascadeByParent.get(fk.target_table) || [];
-      existing.push(fk);
-      cascadeByParent.set(fk.target_table, existing);
+      const existing = cascadeChildren.get(fk.target_table) || [];
+      if (!existing.includes(fk.source_table)) existing.push(fk.source_table);
+      cascadeChildren.set(fk.target_table, existing);
     }
 
-    for (const [parent, fks] of cascadeByParent) {
-      const children = fks.map(f => f.source_table).join(", ");
-      lines.push(`- **${parent}** → cascades to: ${children}`);
+    // Identify root cascade tables: have cascade children but are not cascade children themselves
+    const allCascadeChildTables = new Set(cascadeDeletes.map(fk => fk.source_table));
+    const cascadeRoots = [...cascadeChildren.keys()].filter(
+      t => !allCascadeChildTables.has(t)
+    );
+    // Fall back to all parents if every parent is also a child (full cycle)
+    const parentsToShow =
+      cascadeRoots.length > 0 ? cascadeRoots : [...cascadeChildren.keys()];
 
-      // Check for deep chains (cascade through multiple levels)
-      for (const fk of fks) {
-        const grandchildren = cascadeDeletes.filter(
-          gfk => gfk.target_table === fk.source_table
-        );
-        if (grandchildren.length > 0) {
-          const gcNames = grandchildren.map(g => g.source_table).join(", ");
-          lines.push(`  - **${fk.source_table}** → further cascades to: ${gcNames}`);
+    // Recursively render the cascade chain under a given parent
+    function renderCascadeChain(
+      parent: string,
+      indent: number,
+      visited: Set<string>
+    ): void {
+      const children = cascadeChildren.get(parent) || [];
+      const prefix = "  ".repeat(indent);
+      for (const child of children) {
+        if (visited.has(child)) {
+          lines.push(`${prefix}- **${child}** *(circular)*`);
+        } else if (cascadeChildren.has(child)) {
+          lines.push(`${prefix}- **${child}** →`);
+          renderCascadeChain(child, indent + 1, new Set([...visited, child]));
+        } else {
+          lines.push(`${prefix}- **${child}**`);
         }
       }
     }
+
+    for (const root of parentsToShow) {
+      lines.push(`- **${root}** → cascades to:`);
+      renderCascadeChain(root, 1, new Set([root]));
+    }
     lines.push("");
 
-    lines.push("**WARNING**: Cascading deletes can cause unexpected data loss. Ensure all CASCADE rules are intentional.\n");
+    lines.push(
+      "**WARNING**: Cascading deletes can cause unexpected data loss. Ensure all CASCADE rules are intentional.\n"
+    );
   }
 
   // Recommendations
@@ -288,6 +384,9 @@ function formatRelationshipReport(
   const hubs = connectivity.filter(c => c.total >= 5);
   if (hubs.length > 0) {
     issues.push(`Hub tables (${hubs.map(h => h.name).join(", ")}) have 5+ FK connections — changes to these tables affect many others`);
+  }
+  if (cycles.length > 0) {
+    issues.push(`${cycles.length} circular FK reference(s) detected — review for unintended schema design`);
   }
 
   if (issues.length > 0) {
