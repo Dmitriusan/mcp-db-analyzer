@@ -30,7 +30,7 @@ Other analytical MCP servers (CrystalDBA, pg-dash, MCP-PostgreSQL-Ops) cover Pos
 - Priority support
 
 <!-- TODO: replace placeholder Stripe Payment Link once STRIPE_SECRET_KEY is configured -->
-**$9.99/month** — [Get Pro License](https://buy.stripe.com/PLACEHOLDER)
+**$9.00/month** — [Get Pro License](https://buy.stripe.com/PLACEHOLDER)
 
 Pro license key activates the `generate_report` MCP tool in mcp-jvm-diagnostics.
 
