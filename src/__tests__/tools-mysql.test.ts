@@ -44,6 +44,7 @@ describe("analyzeConnections — MySQL path", () => {
           { state: "Daemon", count: "3" },
         ],
       })
+      .mockResolvedValueOnce({ rows: [{ max_connections: "151" }] }) // max_connections
       .mockResolvedValueOnce({ rows: [] }); // long-running queries
 
     const result = await analyzeConnections();
@@ -59,6 +60,7 @@ describe("analyzeConnections — MySQL path", () => {
           { state: "Sleep", count: "12" },
         ],
       })
+      .mockResolvedValueOnce({ rows: [{ max_connections: "151" }] }) // max_connections
       .mockResolvedValueOnce({ rows: [] });
 
     const result = await analyzeConnections();
@@ -72,6 +74,7 @@ describe("analyzeConnections — MySQL path", () => {
       .mockResolvedValueOnce({
         rows: [{ state: "Query", count: "3" }],
       })
+      .mockResolvedValueOnce({ rows: [{ max_connections: "151" }] }) // max_connections
       .mockResolvedValueOnce({
         rows: [
           { id: "42", user: "app_user", time: "65", state: "executing", info: "SELECT * FROM large_table WHERE status = ?" },
@@ -88,6 +91,7 @@ describe("analyzeConnections — MySQL path", () => {
       .mockResolvedValueOnce({
         rows: [{ state: "Sleep", count: "2" }],
       })
+      .mockResolvedValueOnce({ rows: [{ max_connections: "151" }] }) // max_connections
       .mockResolvedValueOnce({ rows: [] });
 
     const result = await analyzeConnections();
@@ -97,6 +101,7 @@ describe("analyzeConnections — MySQL path", () => {
   it("handles empty process list gracefully", async () => {
     mockQuery
       .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [{ max_connections: "151" }] }) // max_connections
       .mockResolvedValueOnce({ rows: [] });
 
     const result = await analyzeConnections();
@@ -329,5 +334,111 @@ describe("MySQL performance_schema disabled handling", () => {
     const result = await suggestMissingIndexes("mydb");
     expect(result).toContain("Unable to query performance_schema");
     expect(result).toContain("performance_schema is enabled");
+  });
+
+  it("analyzeIndexUsage includes the underlying error detail in output", async () => {
+    mockGetDriverType.mockReturnValue("mysql");
+    mockQuery.mockRejectedValueOnce(new Error("Unknown database 'typo_schema'"));
+
+    const result = await analyzeIndexUsage("typo_schema");
+    expect(result).toContain("Unable to query performance_schema");
+    expect(result).toContain("Details: Unknown database 'typo_schema'");
+  });
+
+  it("findMissingIndexes includes the underlying error detail in output", async () => {
+    mockGetDriverType.mockReturnValue("mysql");
+    mockQuery.mockRejectedValueOnce(new Error("Unknown database 'typo_schema'"));
+
+    const result = await findMissingIndexes("typo_schema");
+    expect(result).toContain("Unable to query performance_schema");
+    expect(result).toContain("Details: Unknown database 'typo_schema'");
+  });
+
+  it("suggestMissingIndexes includes the underlying error detail in output", async () => {
+    mockGetDriverType.mockReturnValue("mysql");
+    mockQuery.mockRejectedValueOnce(new Error("Table 'performance_schema.table_io_waits' doesn't exist"));
+
+    const result = await suggestMissingIndexes("mydb");
+    expect(result).toContain("Unable to query performance_schema");
+    expect(result).toContain("Details: Table 'performance_schema.table_io_waits' doesn't exist");
+  });
+});
+
+// --- MySQL max_connections utilization ---
+
+describe("analyzeConnections — MySQL max_connections utilization", () => {
+  it("shows max_connections and utilization percentage", async () => {
+    mockGetDriverType.mockReturnValue("mysql");
+    // process list
+    mockQuery.mockResolvedValueOnce({
+      rows: [
+        { state: "Query", count: "40" },
+        { state: "Sleep", count: "10" },
+      ],
+    });
+    // max_connections
+    mockQuery.mockResolvedValueOnce({
+      rows: [{ max_connections: "200" }],
+    });
+    // long-running queries
+    mockQuery.mockResolvedValueOnce({ rows: [] });
+
+    const result = await analyzeConnections();
+    expect(result).toContain("**Max connections**: 200");
+    expect(result).toContain("**Utilization**: 25.0%");
+    expect(result).not.toContain("WARNING");
+  });
+
+  it("shows WARNING when utilization exceeds 80%", async () => {
+    mockGetDriverType.mockReturnValue("mysql");
+    // process list: 90 connections
+    mockQuery.mockResolvedValueOnce({
+      rows: [
+        { state: "Query", count: "90" },
+      ],
+    });
+    // max_connections: 100
+    mockQuery.mockResolvedValueOnce({
+      rows: [{ max_connections: "100" }],
+    });
+    // long-running queries
+    mockQuery.mockResolvedValueOnce({ rows: [] });
+
+    const result = await analyzeConnections();
+    expect(result).toContain("**Utilization**: 90.0%");
+    expect(result).toContain("WARNING");
+    expect(result).toContain("max_connections");
+    expect(result).toContain("ProxySQL");
+  });
+
+  it("does not warn when utilization is exactly at 80%", async () => {
+    mockGetDriverType.mockReturnValue("mysql");
+    mockQuery.mockResolvedValueOnce({
+      rows: [{ state: "Query", count: "80" }],
+    });
+    mockQuery.mockResolvedValueOnce({
+      rows: [{ max_connections: "100" }],
+    });
+    mockQuery.mockResolvedValueOnce({ rows: [] });
+
+    const result = await analyzeConnections();
+    expect(result).toContain("**Utilization**: 80.0%");
+    expect(result).not.toContain("WARNING");
+  });
+
+  it("continues gracefully when max_connections query fails", async () => {
+    mockGetDriverType.mockReturnValue("mysql");
+    mockQuery.mockResolvedValueOnce({
+      rows: [{ state: "Sleep", count: "5" }],
+    });
+    // max_connections fails
+    mockQuery.mockRejectedValueOnce(new Error("Access denied"));
+    // long-running queries
+    mockQuery.mockResolvedValueOnce({ rows: [] });
+
+    const result = await analyzeConnections();
+    expect(result).toContain("## Connection Analysis (MySQL)");
+    expect(result).not.toContain("Max connections");
+    expect(result).toContain("No connection issues detected");
   });
 });

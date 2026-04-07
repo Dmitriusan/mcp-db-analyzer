@@ -76,6 +76,8 @@ describe("analyze_connections — extended tests", () => {
         { state: "Sleep", count: "20" },
       ],
     });
+    // max_connections
+    mockQuery.mockResolvedValueOnce({ rows: [{ max_connections: "151" }] });
     // Long-running
     mockQuery.mockResolvedValueOnce({ rows: [] });
 
@@ -250,6 +252,8 @@ describe("analyze_connections — MySQL long-running", () => {
     mockQuery.mockResolvedValueOnce({
       rows: [{ state: "Query", count: "3" }],
     });
+    // max_connections
+    mockQuery.mockResolvedValueOnce({ rows: [{ max_connections: "151" }] });
     mockQuery.mockResolvedValueOnce({
       rows: [
         {
@@ -274,6 +278,8 @@ describe("analyze_connections — MySQL long-running", () => {
     mockQuery.mockResolvedValueOnce({
       rows: [{ state: "Query", count: "1" }],
     });
+    // max_connections
+    mockQuery.mockResolvedValueOnce({ rows: [{ max_connections: "151" }] });
     mockQuery.mockResolvedValueOnce({
       rows: [
         {
