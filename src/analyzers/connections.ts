@@ -223,7 +223,25 @@ async function analyzeMysqlConnections(): Promise<string> {
   lines.push(`| **Total** | **${total}** |`);
   lines.push("");
 
-  // 2. Long-running queries
+  // 2. Max connections utilization
+  try {
+    interface MaxConnRow { max_connections: string; }
+    const maxConn = await query<MaxConnRow>(`SELECT @@max_connections AS max_connections`);
+    if (maxConn.rows.length > 0) {
+      const max = parseInt(maxConn.rows[0].max_connections, 10);
+      const utilization = total / max;
+      lines.push(`**Max connections**: ${max}`);
+      lines.push(`**Utilization**: ${(utilization * 100).toFixed(1)}%`);
+      if (utilization > 0.8) {
+        lines.push(`\n**WARNING**: Connection pool is ${(utilization * 100).toFixed(0)}% utilized. Consider increasing max_connections or using a connection pooler (e.g. ProxySQL).`);
+      }
+      lines.push("");
+    }
+  } catch {
+    // Supplemental info — skip silently if unavailable
+  }
+
+  // 3. Long-running queries
   interface LongQuery {
     id: string;
     user: string;
