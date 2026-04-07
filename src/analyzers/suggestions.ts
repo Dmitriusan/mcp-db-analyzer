@@ -159,8 +159,9 @@ async function suggestMissingIndexesMysql(schema: string): Promise<string> {
     `, [schema]);
 
     return formatSuggestions(needsIndex.rows, unused.rows, schema);
-  } catch {
-    return "## Index Suggestions\n\nUnable to query performance_schema. Ensure performance_schema is enabled (it is ON by default in MySQL 5.7+) and the user has SELECT privilege on performance_schema tables.";
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    return `## Index Suggestions\n\nUnable to query performance_schema. Ensure performance_schema is enabled (it is ON by default in MySQL 5.7+) and the user has SELECT privilege on performance_schema tables.\n\nDetails: ${detail}`;
   }
 }
 

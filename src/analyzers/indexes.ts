@@ -107,8 +107,9 @@ async function analyzeIndexUsageMysql(schema: string): Promise<string> {
     `, [schema]);
 
     return formatIndexUsage(result.rows, schema);
-  } catch {
-    return `## Index Usage Analysis — schema '${schema}'\n\nUnable to query performance_schema. Ensure performance_schema is enabled (it is ON by default in MySQL 5.7+) and the user has SELECT privilege on performance_schema tables.`;
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    return `## Index Usage Analysis — schema '${schema}'\n\nUnable to query performance_schema. Ensure performance_schema is enabled (it is ON by default in MySQL 5.7+) and the user has SELECT privilege on performance_schema tables.\n\nDetails: ${detail}`;
   }
 }
 
@@ -306,8 +307,9 @@ async function findMissingIndexesMysql(schema: string): Promise<string> {
   }
 
   return lines.join("\n");
-  } catch {
-    return "## Missing Index Analysis\n\nUnable to query performance_schema. Ensure performance_schema is enabled (it is ON by default in MySQL 5.7+) and the user has SELECT privilege on performance_schema tables.";
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    return `## Missing Index Analysis\n\nUnable to query performance_schema. Ensure performance_schema is enabled (it is ON by default in MySQL 5.7+) and the user has SELECT privilege on performance_schema tables.\n\nDetails: ${detail}`;
   }
 }
 
