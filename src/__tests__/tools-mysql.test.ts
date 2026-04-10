@@ -460,3 +460,83 @@ describe("analyzeConnections — MySQL max_connections utilization", () => {
     expect(result).toContain("No connection issues detected");
   });
 });
+
+// --- MySQL Table Bloat ---
+
+describe("analyzeTableBloat — MySQL path", () => {
+  it("identifies fragmented InnoDB tables with >10% free space", async () => {
+    mockGetDriverType.mockReturnValue("mysql");
+    mockQuery.mockResolvedValueOnce({
+      rows: [
+        {
+          table_name: "events",
+          table_rows: "500000",
+          data_size: "120.00 MB",
+          data_free: "30.00 MB",
+          frag_pct: "25.0",
+        },
+        {
+          table_name: "users",
+          table_rows: "10000",
+          data_size: "5.00 MB",
+          data_free: "0.10 MB",
+          frag_pct: "2.0",
+        },
+      ],
+    });
+
+    const result = await analyzeTableBloat("mydb");
+    expect(result).toContain("Table Fragmentation Analysis");
+    expect(result).toContain("Fragmented Tables (1 found)");
+    expect(result).toContain("events");
+    expect(result).toContain("25.0%");
+    expect(result).toContain("OPTIMIZE TABLE");
+    // Non-fragmented table should only appear in the All Tables section
+    expect(result).toContain("users");
+  });
+
+  it("reports no fragmentation when all tables are healthy", async () => {
+    mockGetDriverType.mockReturnValue("mysql");
+    mockQuery.mockResolvedValueOnce({
+      rows: [
+        {
+          table_name: "orders",
+          table_rows: "20000",
+          data_size: "8.00 MB",
+          data_free: "0.50 MB",
+          frag_pct: "6.0",
+        },
+      ],
+    });
+
+    const result = await analyzeTableBloat("mydb");
+    expect(result).toContain("No significant fragmentation detected");
+    expect(result).not.toContain("OPTIMIZE TABLE");
+    expect(result).toContain("orders");
+    expect(result).toContain("6.0%");
+  });
+
+  it("returns message when schema has no InnoDB tables", async () => {
+    mockGetDriverType.mockReturnValue("mysql");
+    mockQuery.mockResolvedValueOnce({ rows: [] });
+
+    const result = await analyzeTableBloat("empty_schema");
+    expect(result).toContain("No InnoDB tables found");
+    expect(result).toContain("empty_schema");
+  });
+
+  it("includes OPTIMIZE TABLE statements for all fragmented tables", async () => {
+    mockGetDriverType.mockReturnValue("mysql");
+    mockQuery.mockResolvedValueOnce({
+      rows: [
+        { table_name: "logs", table_rows: "1000000", data_size: "200.00 MB", data_free: "60.00 MB", frag_pct: "30.0" },
+        { table_name: "audit", table_rows: "50000", data_size: "10.00 MB", data_free: "3.00 MB", frag_pct: "30.0" },
+      ],
+    });
+
+    const result = await analyzeTableBloat("mydb");
+    expect(result).toContain("Fragmented Tables (2 found)");
+    expect(result).toContain("OPTIMIZE TABLE mydb.logs");
+    expect(result).toContain("OPTIMIZE TABLE mydb.audit");
+  });
+});
