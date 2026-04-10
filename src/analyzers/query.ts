@@ -96,10 +96,23 @@ async function explainQuerySqlite(sql: string): Promise<string> {
     return "Could not parse query plan.";
   }
 
+  // Build a depth map from the parent chain. SQLite's id field is a node
+  // identifier (can be 2, 4, 10...), not a depth — depth must be computed
+  // by following parent references.
+  const depthMap = new Map<number, number>();
+  for (const row of result.rows) {
+    if (row.parent === 0 || row.parent === row.id) {
+      depthMap.set(row.id, 0);
+    } else {
+      depthMap.set(row.id, (depthMap.get(row.parent) ?? 0) + 1);
+    }
+  }
+
   const lines = ["## Query Plan Analysis (SQLite)\n"];
   lines.push("```");
   for (const row of result.rows) {
-    const indent = "  ".repeat(Math.max(0, row.id));
+    const depth = depthMap.get(row.id) ?? 0;
+    const indent = "  ".repeat(depth);
     lines.push(`${indent}${row.detail}`);
   }
   lines.push("```\n");

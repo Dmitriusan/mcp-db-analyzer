@@ -109,6 +109,51 @@ describe("analyze_indexes — analyzeIndexUsage", () => {
   });
 });
 
+describe("explain_query — SQLite path", () => {
+  it("should compute tree depth from parent chain, not from row.id", async () => {
+    // SQLite EXPLAIN QUERY PLAN returns id/parent node references.
+    // id values are node identifiers (e.g. 2, 6, 9), NOT depths.
+    // A child node with id=6 and parent=2 is depth 1, not depth 6.
+    mockGetDriverType.mockReturnValueOnce("sqlite");
+    mockQueryUnsafe.mockResolvedValueOnce({
+      rows: [
+        { id: 2, parent: 0, notused: 0, detail: "SCAN orders" },
+        { id: 6, parent: 2, notused: 0, detail: "SEARCH users USING INDEX" },
+        { id: 9, parent: 6, notused: 0, detail: "USE TEMP B-TREE FOR ORDER BY" },
+      ],
+    });
+
+    const result = await explainQuery("SELECT * FROM orders JOIN users ON orders.user_id = users.id ORDER BY users.name", false);
+    expect(result).toContain("SCAN orders");
+    expect(result).toContain("SEARCH users");
+    // Root node (parent=0) must be at depth 0 — no leading spaces
+    const ordersScanLine = result.split("\n").find((l) => l.includes("SCAN orders"));
+    expect(ordersScanLine).toBeDefined();
+    expect(ordersScanLine!.startsWith("SCAN") || ordersScanLine!.startsWith("```")).toBeTruthy();
+    // Child node must be at depth 1 (2 spaces), not depth 6 (12 spaces)
+    const usersScanLine = result.split("\n").find((l) => l.includes("SEARCH users"));
+    expect(usersScanLine).toBeDefined();
+    expect(usersScanLine!).toMatch(/^ {2}SEARCH/);
+    // Grandchild at depth 2 (4 spaces), not depth 9 (18 spaces)
+    const btreeLine = result.split("\n").find((l) => l.includes("USE TEMP"));
+    expect(btreeLine).toBeDefined();
+    expect(btreeLine!).toMatch(/^ {4}USE TEMP/);
+  });
+
+  it("should detect full table scan warning in SQLite EXPLAIN output", async () => {
+    mockGetDriverType.mockReturnValueOnce("sqlite");
+    mockQueryUnsafe.mockResolvedValueOnce({
+      rows: [
+        { id: 1, parent: 0, notused: 0, detail: "SCAN orders" },
+      ],
+    });
+
+    const result = await explainQuery("SELECT * FROM orders", false);
+    expect(result).toContain("Full table scan");
+    expect(result).toContain("orders");
+  });
+});
+
 describe("explain_query", () => {
   it("should return error for empty SQL string", async () => {
     const result = await explainQuery("", false);
