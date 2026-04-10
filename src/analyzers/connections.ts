@@ -267,7 +267,13 @@ async function analyzeMysqlConnections(): Promise<string> {
     lines.push("");
   }
 
-  if (longQueries.rows.length === 0) {
+  if (longQueries.rows.length > 0) {
+    lines.push("### Recommendations\n");
+    lines.push("- Set `max_execution_time` (per-session) or `innodb_lock_wait_timeout` to limit runaway queries");
+    lines.push("- Investigate long-running queries with `EXPLAIN` and optimize or add indexes");
+    lines.push("- Use `KILL <id>` to terminate a blocking query if needed");
+    lines.push("");
+  } else {
     lines.push("### No connection issues detected.\n");
   }
 

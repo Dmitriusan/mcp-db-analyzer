@@ -86,6 +86,24 @@ describe("analyzeConnections — MySQL path", () => {
     expect(result).toContain("| 42 | app_user | 65 | executing |");
   });
 
+  it("shows recommendations when long-running queries are found", async () => {
+    mockQuery
+      .mockResolvedValueOnce({
+        rows: [{ state: "Query", count: "2" }],
+      })
+      .mockResolvedValueOnce({ rows: [{ max_connections: "151" }] })
+      .mockResolvedValueOnce({
+        rows: [
+          { id: "77", user: "etl", time: "120", state: "Sending data", info: "SELECT * FROM huge_table" },
+        ],
+      });
+
+    const result = await analyzeConnections();
+    expect(result).toContain("### Recommendations");
+    expect(result).toContain("max_execution_time");
+    expect(result).toContain("KILL");
+  });
+
   it("shows no issues message when no long queries", async () => {
     mockQuery
       .mockResolvedValueOnce({
