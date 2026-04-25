@@ -300,7 +300,7 @@ server.tool(
 // Tool 7: analyze_connections
 server.tool(
   "analyze_connections",
-  "Analyze active database connections. Detects idle-in-transaction sessions (which hold locks and block other queries), long-running queries (flagged at >30 seconds), lock contention between sessions, and connection pool utilization. PostgreSQL and MySQL only.",
+  "Analyze active database connections. Detects idle-in-transaction sessions and lock contention between sessions (PostgreSQL), long-running queries flagged at >30 seconds, and connection pool utilization. Idle-in-transaction and lock contention detection are not available on MySQL — use this tool's output to investigate PostgreSQL-specific blocking scenarios. Not available for SQLite.",
   {
     timeout_ms: timeoutParam,
   },
