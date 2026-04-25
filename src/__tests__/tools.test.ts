@@ -543,6 +543,25 @@ describe("analyze_slow_queries", () => {
     expect(result).toContain("queries returning few rows but slow");
     expect(result).toContain("missing indexes");
   });
+
+  it("should return error message when pg_stat_statements availability check throws", async () => {
+    mockGetDriverType.mockReturnValue("postgres");
+    mockQuery.mockRejectedValueOnce(new Error("permission denied for table pg_extension"));
+
+    const result = await analyzeSlowQueries("public", 10);
+    expect(result).toContain("Unable to check pg_stat_statements");
+    expect(result).toContain("permissions");
+  });
+
+  it("should return error message when pg_stat_statements query itself throws", async () => {
+    mockGetDriverType.mockReturnValue("postgres");
+    mockQuery.mockResolvedValueOnce({ rows: [{ extname: "pg_stat_statements" }] });
+    mockQuery.mockRejectedValueOnce(new Error("relation \"pg_stat_statements\" does not exist"));
+
+    const result = await analyzeSlowQueries("public", 10);
+    expect(result).toContain("Error querying pg_stat_statements");
+    expect(result).toContain("does not exist");
+  });
 });
 
 describe("analyze_table_relationships", () => {
