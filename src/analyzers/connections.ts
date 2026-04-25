@@ -46,7 +46,7 @@ async function analyzePostgresConnections(): Promise<string> {
   let totalConnections = 0;
   for (const row of summary.rows) {
     lines.push(`| ${row.state} | ${row.count} |`);
-    totalConnections += parseInt(row.count, 10);
+    totalConnections += parseInt(row.count, 10) || 0;
   }
   lines.push(`| **Total** | **${totalConnections}** |`);
   lines.push("");
@@ -218,7 +218,7 @@ async function analyzeMysqlConnections(): Promise<string> {
   let total = 0;
   for (const row of summary.rows) {
     lines.push(`| ${row.state} | ${row.count} |`);
-    total += parseInt(row.count, 10);
+    total += parseInt(row.count, 10) || 0;
   }
   lines.push(`| **Total** | **${total}** |`);
   lines.push("");
