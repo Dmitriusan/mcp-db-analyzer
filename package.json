@@ -1,6 +1,6 @@
 {
   "name": "mcp-db-analyzer",
-  "version": "0.2.12",
+  "version": "0.2.13",
   "description": "MCP server for PostgreSQL, MySQL, and SQLite schema analysis, index optimization, and query plan inspection",
   "mcpName": "io.github.dmitriusan/mcp-db-analyzer",
   "author": "Dmytro Lisnichenko",
