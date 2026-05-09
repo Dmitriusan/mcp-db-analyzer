@@ -33,7 +33,7 @@ async function analyzePostgresConnections(): Promise<string> {
     count: string;
   }
   const summary = await query<ConnSummary>(
-    `SELECT COALESCE(state, 'null') AS state, COUNT(*)::text AS count
+    `SELECT COALESCE(state, '(none)') AS state, COUNT(*)::text AS count
      FROM pg_stat_activity
      WHERE backend_type = 'client backend'
      GROUP BY state
