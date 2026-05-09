@@ -83,7 +83,7 @@ async function suggestMissingIndexesSqlite(): Promise<string> {
 
     if (indexes.rows.length === 0) {
       const countResult = await query<{ cnt: number }>(
-        `SELECT count(*) as cnt FROM "${table.name}"`
+        `SELECT count(*) as cnt FROM "${table.name.replace(/"/g, '""')}"`
       );
       const cnt = countResult.rows[0]?.cnt ?? 0;
       if (cnt > 100) {
