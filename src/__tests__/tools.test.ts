@@ -107,6 +107,28 @@ describe("analyze_indexes — analyzeIndexUsage", () => {
     expect(result).toContain("idx_users_old");
     expect(result).toContain("All Indexes by Scan Count");
   });
+
+  it("should include indexes with null idx_scan (never used since stats reset) in unused list", async () => {
+    // PostgreSQL returns NULL for idx_scan on indexes created after the last stats reset.
+    // NULL::text stays null in pg driver — these must appear in the unused list.
+    mockQuery.mockResolvedValueOnce({
+      rows: [
+        {
+          table_name: "products",
+          index_name: "idx_products_new",
+          index_size: "8 kB",
+          idx_scan: null,
+          idx_tup_read: null,
+          idx_tup_fetch: null,
+          index_def: "CREATE INDEX idx_products_new ON products USING btree (sku)",
+        },
+      ],
+    });
+
+    const result = await analyzeIndexUsage("public");
+    expect(result).toContain("Unused Indexes (1 found)");
+    expect(result).toContain("idx_products_new");
+  });
 });
 
 describe("explain_query — SQLite path", () => {

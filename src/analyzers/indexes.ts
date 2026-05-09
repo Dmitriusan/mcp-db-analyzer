@@ -120,7 +120,7 @@ function formatIndexUsage(rows: IndexStats[], schema: string): string {
 
   const lines = [`## Index Usage Analysis — schema '${schema}'\n`];
 
-  const unused = rows.filter((r) => r.idx_scan === "0");
+  const unused = rows.filter((r) => r.idx_scan === "0" || r.idx_scan == null);
   if (unused.length > 0) {
     lines.push(`### Unused Indexes (${unused.length} found)\n`);
     lines.push(
