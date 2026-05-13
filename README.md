@@ -399,3 +399,15 @@ Analyze PostgreSQL VACUUM maintenance status. Checks dead tuple ratios, vacuum s
 ## License
 
 MIT
+
+---
+
+**End-of-life: 2026-05-10.**
+
+This MCP server is no longer maintained or distributed. The Corporation
+has pivoted to Apify marketplace actors. See
+[`irrationalways` on Apify](https://apify.com/irrationalways) and
+`irrcorp/bzp-poland-tenders` for current Corporation work.
+
+The npm package has been unpublished. The repository is archived for
+historical reference only.
